@@ -5,18 +5,31 @@ import {ApolloServer} from 'apollo-server-express';
 import {buildSchemaSync} from 'type-graphql';
 import 'reflect-metadata';
 import {Resolvers} from "./src/graphql";
+import http from 'http';
 
 dotenv.config();
-ServerConfig.getExpress().then((app) => {
+ServerConfig.getExpress().then(({appExpress, pubsub}) => {
     const schema = buildSchemaSync({
-        resolvers: Resolvers()
+        resolvers: Resolvers(),
+        pubSub: pubsub
     })
-    const sever = new ApolloServer({schema});
+    const server = new ApolloServer({
+        schema,
+        context: (context => context),
+        subscriptions: {
+            onConnect(connectionParams, webSocket) {
 
-    sever.applyMiddleware({app, path: '/ghl'});
+            },
+            onDisconnect() {
 
-    app.listen(process.env.SERVER_PORT, () => {
-        console.log(`Server started on port ${process.env.SERVER_PORT}`)
+            }
+        }
+    });
+    server.applyMiddleware({app: appExpress, path: '/ghl'});
+    const httpServer = http.createServer(appExpress);
+    server.installSubscriptionHandlers(httpServer)
+    httpServer.listen(Number(process.env.SERVER_PORT), () => {
+        console.log(chalk.green(`Server started on port ${process.env.SERVER_PORT}`))
     });
 }).catch((err) => {
 
